@@ -10,3 +10,8 @@ export const getAllTasks = async (req: AuthRequest, res: Response) => {
     const Tasks = await taskRepository.getAllTasks(req.user!.id)
     res.json({ tasks: Tasks })
 };
+
+export const createTask = async (req: AuthRequest, res: Response) => {
+    const Tasks = await taskRepository.create(req.body, req.user!.id)
+    res.json({ tasks: Tasks })
+}

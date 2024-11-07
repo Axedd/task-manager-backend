@@ -3,7 +3,7 @@ export interface Task {
     userId?: number;
     title?: string;
     description: string;
-    dueDate?: Date;
+    assigned_at: string;
     // Any other properties and methods related to the task
 }
 

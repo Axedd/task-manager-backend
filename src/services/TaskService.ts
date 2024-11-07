@@ -8,8 +8,8 @@ export class TaskService {
         this.taskRepository = taskRepository;
     }
 
-    async createTask(taskData: Partial<Task>): Promise<Task> {
-        return this.taskRepository.create(taskData);
+    async createTask(taskData: Partial<Task>, user_id: number): Promise<Task> {
+        return this.taskRepository.create(taskData, user_id);
     }
 
     //async getAllUserTasks(userId: number): Promise<Task[]> {

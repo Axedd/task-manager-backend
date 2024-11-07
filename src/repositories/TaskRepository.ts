@@ -1,20 +1,54 @@
 import db from "../models/db";
 import { Task } from "../models/taskModel";
 
+
+const formatMySQLDatetime = (date: string | undefined): string => {
+    if (!date) {
+        // If `assigned_at` is undefined, return the current date/time as fallback
+        return new Date().toISOString().slice(0, 19).replace('T', ' ');
+    }
+    const newDate = new Date(date);
+    return newDate.toISOString().slice(0, 19).replace('T', ' '); 
+};
+
 export class TaskRepository {
     // Create a new task
-    async create(taskData: Partial<Task>): Promise<Task> {
+    async create(taskData: Partial<Task>, user_id: number): Promise<Task> {
         const connection = await db.getConnection();
         try {
-            const [result] = await connection.query(
-                `INSERT INTO Tasks (title, description, dueDate, user_id) VALUES (?, ?, ?, ?)`,
-                [taskData.title, taskData.description, taskData.dueDate, taskData.userId]
+            const assignedAtFormatted = formatMySQLDatetime(taskData.assigned_at);
+
+            const [taskResult] = await connection.query(
+                `INSERT INTO Tasks (title, description, assigned_at) VALUES (?, ?, ?)`,
+                [taskData.title, taskData.description, assignedAtFormatted]
             );
-            return { id: (result as any).insertId, ...taskData } as Task; // Return the created task with its ID
+
+            if (!taskResult) {
+                throw new Error('Failed to create task');
+            }
+
+            const taskId = (taskResult as any).insertId;
+
+            const [userTaskResult] = await connection.query(
+                `INSERT INTO usertasks (task_id, user_id) VALUES (?, ?)`,
+                [taskId, user_id]
+            );
+
+            if (!userTaskResult) {
+                throw new Error('Failed to assign task to user');
+            }
+
+
+            return { id: taskId, user_id, ...taskData } as Task; // Return the created task with its ID
+        } catch (err)  {
+            console.error('Error creating task:', err);
+            
+            throw err; // You can handle this with custom error handling if needed
         } finally {
             connection.release(); // Always release the connection back to the pool
         }
     }
+    
 
     async getAllTasks(userId: number): Promise<Task[]> {
         const connection = await db.getConnection();
@@ -26,8 +60,7 @@ export class TaskRepository {
                     t.task_id, 
                     t.title, 
                     t.description, 
-                    t.created_at, 
-                    ut.assigned_at 
+                    t.assigned_at
                 FROM 
                     usertasks ut
                 JOIN 
@@ -50,27 +83,5 @@ export class TaskRepository {
         return null;
     }
 
-    // Update a task
-    async update(taskId: number, taskData: Partial<Task>): Promise<Task | null> {
-        const connection = await db.getConnection();
-        try {
-            await connection.query(
-                `UPDATE Tasks SET title = ?, description = ?, dueDate = ? WHERE id = ?`,
-                [taskData.title, taskData.description, taskData.dueDate, taskId]
-            );
-            return this.findById(taskId); // Return the updated task
-        } finally {
-            connection.release();
-        }
-    }
 
-    // Delete a task
-    async delete(taskId: number): Promise<void> {
-        const connection = await db.getConnection();
-        try {
-            await connection.query(`DELETE FROM Tasks WHERE id = ?`, [taskId]);
-        } finally {
-            connection.release();
-        }
-    }
 }
